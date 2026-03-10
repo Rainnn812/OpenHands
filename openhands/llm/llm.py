@@ -826,15 +826,28 @@ class LLM(RetryMixin, DebugMixin):
     def __repr__(self) -> str:
         return str(self)
 
+    # Models that support sending reasoning_content back in conversation history
+    SEND_REASONING_CONTENT_PATTERNS: list[str] = [
+        'kimi-k2-thinking',
+        'glm',
+    ]
+
     def format_messages_for_llm(self, messages: Message | list[Message]) -> list[dict]:
         if isinstance(messages, Message):
             messages = [messages]
+
+        model_lower = self.config.model.lower()
+        send_rc = any(
+            pat in model_lower
+            for pat in self.SEND_REASONING_CONTENT_PATTERNS
+        )
 
         # set flags to know how to serialize the messages
         for message in messages:
             message.cache_enabled = self.is_caching_prompt_active()
             message.vision_enabled = self.vision_is_active()
             message.function_calling_enabled = self.is_function_calling_active()
+            message.send_reasoning_content = send_rc
             if 'deepseek' in self.config.model:
                 message.force_string_serializer = True
             if 'kimi-k2-instruct' in self.config.model and 'groq' in self.config.model:
